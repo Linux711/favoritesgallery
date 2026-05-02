@@ -63,7 +63,7 @@ app.listen(3001, () => {
 app.get('/sync', async (req, res) => {
   // Accept login and api_key as query parameters, fallback to env for api_key
   const login = req.query.login;
-  const api_key = (req.query.api_key || process.env.DANBOORU_API_KEY).trim();
+  const api_key = (req.query.api_key || process.env.DANBOORU_API_KEY || '').trim();
   const maxPosts = req.query.limit ? parseInt(req.query.limit) : null; // Optional limit for recent posts
   console.log('Login:', login, 'API Key:', api_key ? 'Present' : 'Missing');
   if (!login || !api_key) {
