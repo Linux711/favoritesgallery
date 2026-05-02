@@ -148,6 +148,25 @@
       opacity: 1; /* Show on card hover */
       pointer-events: auto;
     }
+    .delete-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #f55;
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      cursor: pointer;
+      font-size: 1.2em;
+      font-weight: bold;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .card:hover .delete-btn {
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
@@ -230,6 +249,20 @@
         });
         card.appendChild(tagsDiv);
 
+        // Delete button
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'delete-btn';
+        deleteBtn.textContent = '×';
+        deleteBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (confirm('Delete this post from your gallery?')) {
+            fetch(`http://localhost:3001/delete?id=${post.id}`, { method: 'POST' })
+              .then(() => fetchPosts())
+              .catch(() => alert('Delete failed.'));
+          }
+        };
+        card.appendChild(deleteBtn);
+
         gallery.appendChild(card);
       });
     }
@@ -269,7 +302,7 @@
     async function syncPosts() {
       document.getElementById('loading').style.display = 'block';
       try {
-        await fetch('http://localhost:3001/sync');
+        await fetch('http://localhost:3001/sync?login=linuxthephoenix');
         await fetchPosts(); // Refresh gallery
       } catch (e) {
         alert('Sync failed.');

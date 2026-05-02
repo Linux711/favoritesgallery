@@ -71,6 +71,7 @@ app.get('/sync', async (req, res) => {
   let page = 1;
   let totalSynced = 0;
   const limit = 10; // Number of posts per page
+  const syncedIds = []; // Track IDs of posts synced this time
 
   // Prepare the insert statement with 'INSERT OR REPLACE' to update existing posts
   const insertStmt = db.prepare(`
@@ -112,15 +113,40 @@ app.get('/sync', async (req, res) => {
           post.image_height || null
         );
         totalSynced++;
+        syncedIds.push(post.id); // Track synced post IDs
       }
 
       // Go to next page
       page++;
     }
+    // Remove posts that are no longer favorited
+    if (syncedIds.length > 0) {
+      const placeholders = syncedIds.map(() => '?').join(',');
+      const deleteStmt = db.prepare(`DELETE FROM posts WHERE id NOT IN (${placeholders})`);
+      deleteStmt.run(...syncedIds);
+    }
     // Return the total number of posts synced
     res.json({ synced: totalSynced });
   } catch (err) {
     // Handle errors gracefully
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /delete endpoint to manually delete a post by ID
+app.post('/delete', (req, res) => {
+  const id = req.query.id;
+  if (!id) {
+    return res.status(400).json({ error: 'Missing id query parameter' });
+  }
+  try {
+    const result = db.prepare('DELETE FROM posts WHERE id = ?').run(id);
+    if (result.changes > 0) {
+      res.json({ deleted: id });
+    } else {
+      res.status(404).json({ error: 'Post not found' });
+    }
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
