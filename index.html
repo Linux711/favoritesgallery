@@ -211,7 +211,7 @@
     // Store all posts in memory for filtering
     let allPosts = [];
     let filteredPosts = [];
-    let selectedRatings = new Set(['s', 'q', 'e']); // Default to show all ratings
+    let selectedRatings = new Set(['s']); // Default to show safe and explicit only
 
     // Utility: Split tag string into array, filter empty
     function parseTags(tagString) {
@@ -225,7 +225,7 @@
         const res = await fetch('http://localhost:3001/posts');
         allPosts = await res.json();
         filteredPosts = allPosts;
-        renderGallery();
+        filterPosts(); // Apply initial filter based on selectedRatings
       } catch (e) {
         document.getElementById('gallery').innerHTML = '<div style="color:#f55">Failed to load posts.</div>';
       } finally {
@@ -393,8 +393,12 @@
       });
     });
 
-    // Set default active rating buttons (all selected)
-    document.querySelectorAll('.rating-btn').forEach(b => b.classList.add('active'));
+    // Set default active rating buttons (safe and explicit selected)
+    document.querySelectorAll('.rating-btn').forEach(b => {
+      if (selectedRatings.has(b.dataset.rating)) {
+        b.classList.add('active');
+      }
+    });
 
     // Initial load
     fetchPosts();
