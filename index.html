@@ -78,6 +78,7 @@
       overflow: hidden;
       transition: transform 0.1s;
       cursor: pointer;
+      position: relative; /* Added for absolute positioning of tags over the image */
     }
     .card:hover {
       transform: translateY(-4px) scale(1.02);
@@ -87,14 +88,24 @@
       width: 100%;
       display: block;
       background: #111;
-      aspect-ratio: 1.2/1;
-      object-fit: cover;
+      height: auto; /* Allow images to display at their natural aspect ratio */
+      object-fit: contain; /* Fit entire image without cropping */
     }
     .tags {
+      position: absolute; /* Position tags absolutely over the image */
+      top: 10px; /* Top padding from image edge */
+      left: 10px; /* Left padding from image edge */
+      right: 10px; /* Right padding from image edge */
       display: flex;
       flex-wrap: wrap;
       gap: 0.4em;
-      padding: 0.7em 1em 1em 1em;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .card:hover .tags {
+      opacity: 1;
+      pointer-events: auto;
     }
     .pill {
       background: #36393f;
@@ -113,12 +124,29 @@
       color: #fff;
     }
     .card-content {
+      position: absolute; /* Position rating absolutely over the image */
+      bottom: 10px; /* Bottom padding from image edge */
+      left: 10px; /* Left padding from image edge */
       padding: 0.7em 1em 0 1em;
+      opacity: 0; /* Hidden by default */
+      transition: opacity 0.2s;
+      pointer-events: none;
+    }
+    .card:hover .card-content {
+      opacity: 1; /* Show on card hover */
+      pointer-events: auto;
     }
     .rating {
       font-size: 0.9em;
       color: #aaa;
       margin-bottom: 0.5em;
+      opacity: 0; /* Hidden by default */
+      transition: opacity 0.2s;
+      pointer-events: none;
+    }
+    .card:hover .rating {
+      opacity: 1; /* Show on card hover */
+      pointer-events: auto;
     }
   </style>
 </head>
