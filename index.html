@@ -195,7 +195,7 @@
   <!-- Header with search and sync -->
   <header>
     <input class="search-box" id="search" type="text" placeholder="Search tags..." autocomplete="off" />
-    <button class="sync-btn" id="syncBtn">Sync</button>
+    <!-- <button class="sync-btn" id="syncBtn">Sync</button> -->
     <input id="quickSyncLimit" type="number" min="1" max="200" value="10" style="margin-left: 1rem; padding: 0.7rem; border-radius: 6px; border: none; background: #222; color: #fff; font-size: 1rem;" />
     <button class="sync-btn" id="quickSyncBtn">Quick Sync</button>
     <div style="margin-left: 2rem; display: flex; gap: 0.5rem;">
@@ -340,7 +340,7 @@
     async function syncPosts() {
       document.getElementById('loading').style.display = 'block';
       try {
-        const response = await fetch('http://localhost:3001/sync?login=linuxthephoenix');
+        const response = await fetch('http://localhost:3001/sync?login=xx99');
         const data = await response.json();
         await fetchPosts(); // Refresh gallery
         alert(`Sync successful! Synced ${data.synced} posts.`);
@@ -356,7 +356,7 @@
       const limit = document.getElementById('quickSyncLimit').value || 50; // Get limit from input, default to 50
       document.getElementById('loading').style.display = 'block';
       try {
-        const response = await fetch(`http://localhost:3001/sync?login=linuxthephoenix&limit=${limit}`);
+        const response = await fetch(`http://localhost:3001/sync?login=xx99&limit=${limit}`);
         const data = await response.json();
         await fetchPosts(); // Refresh gallery
         alert(`Quick sync (last ${limit}) successful! Synced ${data.synced} posts.`);
@@ -369,7 +369,7 @@
 
     // Event listeners
     document.getElementById('search').addEventListener('input', filterPosts);
-    document.getElementById('syncBtn').addEventListener('click', syncPosts);
+    // document.getElementById('syncBtn').addEventListener('click', syncPosts);
     document.getElementById('quickSyncBtn').addEventListener('click', quickSyncPosts);
 
     // Rating filter buttons

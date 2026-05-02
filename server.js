@@ -63,8 +63,9 @@ app.listen(3001, () => {
 app.get('/sync', async (req, res) => {
   // Accept login and api_key as query parameters, fallback to env for api_key
   const login = req.query.login;
-  const api_key = req.query.api_key || process.env.DANBOORU_API_KEY;
+  const api_key = (req.query.api_key || process.env.DANBOORU_API_KEY).trim();
   const maxPosts = req.query.limit ? parseInt(req.query.limit) : null; // Optional limit for recent posts
+  console.log('Login:', login, 'API Key:', api_key ? 'Present' : 'Missing');
   if (!login || !api_key) {
     return res.status(400).json({ error: 'Missing login or api_key (query or env)' });
   }
@@ -85,8 +86,10 @@ app.get('/sync', async (req, res) => {
     if (maxPosts) {
       // Sync only the most recent maxPosts posts (single page)
       const url = `https://danbooru.donmai.us/posts.json?tags=ordfav:${login}&login=${encodeURIComponent(login)}&api_key=${encodeURIComponent(api_key)}&limit=${apiLimit}&page=1`;
+      console.log('Fetching URL:', url);
 
       const response = await fetch(url);
+      console.log('Response status:', response.status);
       if (!response.ok) {
         return res.status(502).json({ error: `Danbooru API error: ${response.status}` });
       }
@@ -114,8 +117,10 @@ app.get('/sync', async (req, res) => {
       // Full sync: paginate through all favorites
       while (true) {
         const url = `https://danbooru.donmai.us/posts.json?tags=ordfav:${login}&login=${encodeURIComponent(login)}&api_key=${encodeURIComponent(api_key)}&limit=${apiLimit}&page=${page}`;
+        console.log('Fetching URL:', url);
 
         const response = await fetch(url);
+        console.log('Response status:', response.status);
         if (!response.ok) {
           return res.status(502).json({ error: `Danbooru API error: ${response.status}` });
         }
@@ -148,13 +153,6 @@ app.get('/sync', async (req, res) => {
         // Go to next page
         page++;
       }
-    }
-
-    // Remove posts that are no longer favorited (only for full sync)
-    if (!maxPosts && syncedIds.length > 0) {
-      const placeholders = syncedIds.map(() => '?').join(',');
-      const deleteStmt = db.prepare(`DELETE FROM posts WHERE id NOT IN (${placeholders})`);
-      deleteStmt.run(...syncedIds);
     }
 
     // Return the total number of posts synced
