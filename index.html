@@ -169,10 +169,10 @@
           window.open(`https://danbooru.donmai.us/posts/${post.id}`, '_blank');
         };
 
-        // Thumbnail - use file_url for highest quality, fallback to sample_file_url or preview_file_url
+        // Thumbnail
         const img = document.createElement('img');
         img.className = 'thumb';
-        img.src = post.file_url || post.sample_file_url || post.preview_file_url;
+        img.src = post.large_file_url || post.preview_file_url; // Use large_file_url if available, fallback to preview
         img.alt = 'Preview';
         card.appendChild(img);
 

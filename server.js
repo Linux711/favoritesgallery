@@ -34,18 +34,6 @@ if (!dbExists) {
   `).run();
 }
 
-// Add new columns if they don't exist (for higher quality images)
-try {
-  db.prepare(`ALTER TABLE posts ADD COLUMN sample_file_url TEXT`).run();
-} catch (e) {
-  // Column might already exist, ignore
-}
-try {
-  db.prepare(`ALTER TABLE posts ADD COLUMN file_url TEXT`).run();
-} catch (e) {
-  // Column might already exist, ignore
-}
-
 // Initialize the Express application
 const app = express();
 
@@ -84,11 +72,11 @@ app.get('/sync', async (req, res) => {
   let totalSynced = 0;
   const limit = 10; // Number of posts per page
 
-  // Prepare the insert statement with 'INSERT OR REPLACE' to update existing posts with new data
+  // Prepare the insert statement with 'INSERT OR REPLACE' to update existing posts
   const insertStmt = db.prepare(`
     INSERT OR REPLACE INTO posts (
-      id, preview_file_url, tag_string_general, tag_string_artist, tag_string_character, tag_string_copyright, rating, score, image_width, image_height, sample_file_url, file_url
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      id, preview_file_url, large_file_url, tag_string_general, tag_string_artist, tag_string_character, tag_string_copyright, rating, score, image_width, image_height
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   try {
@@ -113,6 +101,7 @@ app.get('/sync', async (req, res) => {
         insertStmt.run(
           post.id,
           post.preview_file_url || null,
+          post.large_file_url || null,
           post.tag_string_general || null,
           post.tag_string_artist || null,
           post.tag_string_character || null,
@@ -120,9 +109,7 @@ app.get('/sync', async (req, res) => {
           post.rating || null,
           post.score || null,
           post.image_width || null,
-          post.image_height || null,
-          post.sample_file_url || null,
-          post.file_url || null
+          post.image_height || null
         );
         totalSynced++;
       }
