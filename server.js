@@ -64,13 +64,14 @@ app.get('/sync', async (req, res) => {
   // Accept login and api_key as query parameters, fallback to env for api_key
   const login = req.query.login;
   const api_key = req.query.api_key || process.env.DANBOORU_API_KEY;
+  const maxPosts = req.query.limit ? parseInt(req.query.limit) : null; // Optional limit for recent posts
   if (!login || !api_key) {
     return res.status(400).json({ error: 'Missing login or api_key (query or env)' });
   }
 
   let page = 1;
   let totalSynced = 0;
-  const limit = 10; // Number of posts per page
+  const apiLimit = maxPosts ? Math.min(maxPosts, 200) : 10; // API limit per page
   const syncedIds = []; // Track IDs of posts synced this time
 
   // Prepare the insert statement with 'INSERT OR REPLACE' to update existing posts
@@ -81,23 +82,17 @@ app.get('/sync', async (req, res) => {
   `);
 
   try {
-    while (true) {
-      // Build the Danbooru API URL for favorited posts
-      const url = `https://danbooru.donmai.us/posts.json?tags=ordfav:${login}&login=${encodeURIComponent(login)}&api_key=${encodeURIComponent(api_key)}&limit=${limit}&page=${page}`;
+    if (maxPosts) {
+      // Sync only the most recent maxPosts posts (single page)
+      const url = `https://danbooru.donmai.us/posts.json?tags=ordfav:${login}&login=${encodeURIComponent(login)}&api_key=${encodeURIComponent(api_key)}&limit=${apiLimit}&page=1`;
 
-      // Fetch posts from Danbooru
       const response = await fetch(url);
       if (!response.ok) {
         return res.status(502).json({ error: `Danbooru API error: ${response.status}` });
       }
       const posts = await response.json();
 
-      // Stop if no more posts
-      if (!Array.isArray(posts) || posts.length === 0) {
-        break;
-      }
-
-      // Insert each post into the database
+      // Insert each post
       for (const post of posts) {
         insertStmt.run(
           post.id,
@@ -113,18 +108,55 @@ app.get('/sync', async (req, res) => {
           post.image_height || null
         );
         totalSynced++;
-        syncedIds.push(post.id); // Track synced post IDs
+        syncedIds.push(post.id);
       }
+    } else {
+      // Full sync: paginate through all favorites
+      while (true) {
+        const url = `https://danbooru.donmai.us/posts.json?tags=ordfav:${login}&login=${encodeURIComponent(login)}&api_key=${encodeURIComponent(api_key)}&limit=${apiLimit}&page=${page}`;
 
-      // Go to next page
-      page++;
+        const response = await fetch(url);
+        if (!response.ok) {
+          return res.status(502).json({ error: `Danbooru API error: ${response.status}` });
+        }
+        const posts = await response.json();
+
+        // Stop if no more posts
+        if (!Array.isArray(posts) || posts.length === 0) {
+          break;
+        }
+
+        // Insert each post
+        for (const post of posts) {
+          insertStmt.run(
+            post.id,
+            post.preview_file_url || null,
+            post.large_file_url || null,
+            post.tag_string_general || null,
+            post.tag_string_artist || null,
+            post.tag_string_character || null,
+            post.tag_string_copyright || null,
+            post.rating || null,
+            post.score || null,
+            post.image_width || null,
+            post.image_height || null
+          );
+          totalSynced++;
+          syncedIds.push(post.id);
+        }
+
+        // Go to next page
+        page++;
+      }
     }
-    // Remove posts that are no longer favorited
-    if (syncedIds.length > 0) {
+
+    // Remove posts that are no longer favorited (only for full sync)
+    if (!maxPosts && syncedIds.length > 0) {
       const placeholders = syncedIds.map(() => '?').join(',');
       const deleteStmt = db.prepare(`DELETE FROM posts WHERE id NOT IN (${placeholders})`);
       deleteStmt.run(...syncedIds);
     }
+
     // Return the total number of posts synced
     res.json({ synced: totalSynced });
   } catch (err) {

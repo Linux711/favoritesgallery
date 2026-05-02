@@ -9,7 +9,7 @@
     body {
       background: #181a1b;
       color: #e0e0e0;
-      font-family: 'Segoe UI', Arial, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       margin: 0;
       padding: 0;
     }
@@ -47,6 +47,28 @@
     }
     .sync-btn:active {
       background: #4752c4;
+    }
+    .rating-btn {
+      background: #36393f;
+      color: #b9bbbe;
+      border: none;
+      border-radius: 6px;
+      padding: 0.7rem 1rem;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .rating-btn:hover {
+      background: #7289da;
+      color: #fff;
+    }
+    .rating-btn.active {
+      background: #5865f2;
+      color: #fff;
+    }
+    .rating-btn.active:hover {
+      background: #4752c4;
+      color: #fff;
     }
     .loading {
       text-align: center;
@@ -174,6 +196,13 @@
   <header>
     <input class="search-box" id="search" type="text" placeholder="Search tags..." autocomplete="off" />
     <button class="sync-btn" id="syncBtn">Sync</button>
+    <input id="quickSyncLimit" type="number" min="1" max="200" value="10" style="margin-left: 1rem; padding: 0.7rem; border-radius: 6px; border: none; background: #222; color: #fff; font-size: 1rem;" />
+    <button class="sync-btn" id="quickSyncBtn">Quick Sync</button>
+    <div style="margin-left: 2rem; display: flex; gap: 0.5rem;">
+      <button class="rating-btn" data-rating="s">Safe</button>
+      <button class="rating-btn" data-rating="q">Questionable</button>
+      <button class="rating-btn" data-rating="e">Explicit</button>
+    </div>
   </header>
   <div id="loading" class="loading" style="display:none;">Loading...</div>
   <div class="gallery" id="gallery"></div>
@@ -182,6 +211,7 @@
     // Store all posts in memory for filtering
     let allPosts = [];
     let filteredPosts = [];
+    let selectedRatings = new Set(['s', 'q', 'e']); // Default to show all ratings
 
     // Utility: Split tag string into array, filter empty
     function parseTags(tagString) {
@@ -280,13 +310,14 @@
       return pill;
     }
 
-    // Filter posts based on search box
+    // Filter posts based on search box and rating filter
     function filterPosts() {
       const q = document.getElementById('search').value.trim().toLowerCase();
-      if (!q) {
-        filteredPosts = allPosts;
-      } else {
-        filteredPosts = allPosts.filter(post => {
+      let filtered = allPosts;
+
+      // Apply search filter
+      if (q) {
+        filtered = filtered.filter(post => {
           return (
             (post.tag_string_artist && post.tag_string_artist.toLowerCase().includes(q)) ||
             (post.tag_string_character && post.tag_string_character.toLowerCase().includes(q)) ||
@@ -295,6 +326,13 @@
           );
         });
       }
+
+      // Apply rating filter
+      if (selectedRatings.size > 0) {
+        filtered = filtered.filter(post => selectedRatings.has(post.rating));
+      }
+
+      filteredPosts = filtered;
       renderGallery();
     }
 
@@ -302,10 +340,28 @@
     async function syncPosts() {
       document.getElementById('loading').style.display = 'block';
       try {
-        await fetch('http://localhost:3001/sync?login=linuxthephoenix');
+        const response = await fetch('http://localhost:3001/sync?login=linuxthephoenix');
+        const data = await response.json();
         await fetchPosts(); // Refresh gallery
+        alert(`Sync successful! Synced ${data.synced} posts.`);
       } catch (e) {
         alert('Sync failed.');
+      } finally {
+        document.getElementById('loading').style.display = 'none';
+      }
+    }
+
+    // Quick sync: only last 50 favorites
+    async function quickSyncPosts() {
+      const limit = document.getElementById('quickSyncLimit').value || 50; // Get limit from input, default to 50
+      document.getElementById('loading').style.display = 'block';
+      try {
+        const response = await fetch(`http://localhost:3001/sync?login=linuxthephoenix&limit=${limit}`);
+        const data = await response.json();
+        await fetchPosts(); // Refresh gallery
+        alert(`Quick sync (last ${limit}) successful! Synced ${data.synced} posts.`);
+      } catch (e) {
+        alert('Quick sync failed.');
       } finally {
         document.getElementById('loading').style.display = 'none';
       }
@@ -314,6 +370,31 @@
     // Event listeners
     document.getElementById('search').addEventListener('input', filterPosts);
     document.getElementById('syncBtn').addEventListener('click', syncPosts);
+    document.getElementById('quickSyncBtn').addEventListener('click', quickSyncPosts);
+
+    // Rating filter buttons
+    document.querySelectorAll('.rating-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const rating = e.target.dataset.rating;
+        if (selectedRatings.has(rating)) {
+          selectedRatings.delete(rating);
+        } else {
+          selectedRatings.add(rating);
+        }
+        // Update active class
+        document.querySelectorAll('.rating-btn').forEach(b => {
+          if (selectedRatings.has(b.dataset.rating)) {
+            b.classList.add('active');
+          } else {
+            b.classList.remove('active');
+          }
+        });
+        filterPosts();
+      });
+    });
+
+    // Set default active rating buttons (all selected)
+    document.querySelectorAll('.rating-btn').forEach(b => b.classList.add('active'));
 
     // Initial load
     fetchPosts();
