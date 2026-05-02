@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Booru Gallery</title>
+  <style>
+    /* Dark theme and base styles */
+    body {
+      background: #181a1b;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 2rem;
+      background: #23272a;
+      box-shadow: 0 2px 8px #0004;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .search-box {
+      flex: 1 1 300px;
+      margin-right: 1rem;
+      background: #222;
+      border: none;
+      border-radius: 6px;
+      padding: 0.7rem 1rem;
+      color: #fff;
+      font-size: 1rem;
+    }
+    .sync-btn {
+      background: #5865f2;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 0.7rem 1.5rem;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .sync-btn:active {
+      background: #4752c4;
+    }
+    .loading {
+      text-align: center;
+      margin: 2rem 0;
+      font-size: 1.2rem;
+      color: #aaa;
+    }
+    .gallery {
+      column-count: 4;
+      column-gap: 1rem;
+      padding: 2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    @media (max-width: 1100px) {
+      .gallery { column-count: 2; }
+    }
+    @media (max-width: 700px) {
+      .gallery { column-count: 1; padding: 1rem; }
+      header { flex-direction: column; gap: 1rem; }
+    }
+    .card {
+      background: #23272a;
+      border-radius: 10px;
+      margin-bottom: 1rem;
+      display: inline-block;
+      width: 100%;
+      box-shadow: 0 2px 8px #0006;
+      overflow: hidden;
+      transition: transform 0.1s;
+      cursor: pointer;
+    }
+    .card:hover {
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 6px 16px #0008;
+    }
+    .thumb {
+      width: 100%;
+      display: block;
+      background: #111;
+      aspect-ratio: 1.2/1;
+      object-fit: cover;
+    }
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4em;
+      padding: 0.7em 1em 1em 1em;
+    }
+    .pill {
+      background: #36393f;
+      color: #b9bbbe;
+      border-radius: 999px;
+      padding: 0.2em 0.9em;
+      font-size: 0.92em;
+      margin-top: 0.2em;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      border: none;
+      outline: none;
+    }
+    .pill:hover {
+      background: #5865f2;
+      color: #fff;
+    }
+    .card-content {
+      padding: 0.7em 1em 0 1em;
+    }
+    .rating {
+      font-size: 0.9em;
+      color: #aaa;
+      margin-bottom: 0.5em;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header with search and sync -->
+  <header>
+    <input class="search-box" id="search" type="text" placeholder="Search tags..." autocomplete="off" />
+    <button class="sync-btn" id="syncBtn">Sync</button>
+  </header>
+  <div id="loading" class="loading" style="display:none;">Loading...</div>
+  <div class="gallery" id="gallery"></div>
+
+  <script>
+    // Store all posts in memory for filtering
+    let allPosts = [];
+    let filteredPosts = [];
+
+    // Utility: Split tag string into array, filter empty
+    function parseTags(tagString) {
+      return (tagString || '').split(' ').filter(Boolean);
+    }
+
+    // Fetch posts from the API
+    async function fetchPosts() {
+      document.getElementById('loading').style.display = 'block';
+      try {
+        const res = await fetch('http://localhost:3001/posts');
+        allPosts = await res.json();
+        filteredPosts = allPosts;
+        renderGallery();
+      } catch (e) {
+        document.getElementById('gallery').innerHTML = '<div style="color:#f55">Failed to load posts.</div>';
+      } finally {
+        document.getElementById('loading').style.display = 'none';
+      }
+    }
+
+    // Render the gallery with current filteredPosts
+    function renderGallery() {
+      const gallery = document.getElementById('gallery');
+      gallery.innerHTML = '';
+      filteredPosts.forEach(post => {
+        // Create card element
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.title = `Score: ${post.score} | Rating: ${post.rating}`;
+        card.onclick = () => {
+          window.open(`https://danbooru.donmai.us/posts/${post.id}`, '_blank');
+        };
+
+        // Thumbnail - use file_url for highest quality, fallback to sample_file_url or preview_file_url
+        const img = document.createElement('img');
+        img.className = 'thumb';
+        img.src = post.file_url || post.sample_file_url || post.preview_file_url;
+        img.alt = 'Preview';
+        card.appendChild(img);
+
+        // Card content (rating)
+        const content = document.createElement('div');
+        content.className = 'card-content';
+        content.innerHTML = `<div class="rating">${post.rating ? 'Rating: ' + post.rating.toUpperCase() : ''}</div>`;
+        card.appendChild(content);
+
+        // Tags
+        const tagsDiv = document.createElement('div');
+        tagsDiv.className = 'tags';
+        // Artist tags
+        parseTags(post.tag_string_artist).forEach(tag => {
+          const pill = createTagPill(tag);
+          tagsDiv.appendChild(pill);
+        });
+        // Character tags
+        parseTags(post.tag_string_character).forEach(tag => {
+          const pill = createTagPill(tag);
+          tagsDiv.appendChild(pill);
+        });
+        // Copyright tags
+        parseTags(post.tag_string_copyright).forEach(tag => {
+          const pill = createTagPill(tag);
+          tagsDiv.appendChild(pill);
+        });
+        card.appendChild(tagsDiv);
+
+        gallery.appendChild(card);
+      });
+    }
+
+    // Create a tag pill element
+    function createTagPill(tag) {
+      const pill = document.createElement('button');
+      pill.className = 'pill';
+      pill.textContent = tag;
+      pill.onclick = (e) => {
+        e.stopPropagation();
+        document.getElementById('search').value = tag;
+        filterPosts();
+      };
+      return pill;
+    }
+
+    // Filter posts based on search box
+    function filterPosts() {
+      const q = document.getElementById('search').value.trim().toLowerCase();
+      if (!q) {
+        filteredPosts = allPosts;
+      } else {
+        filteredPosts = allPosts.filter(post => {
+          return (
+            (post.tag_string_artist && post.tag_string_artist.toLowerCase().includes(q)) ||
+            (post.tag_string_character && post.tag_string_character.toLowerCase().includes(q)) ||
+            (post.tag_string_copyright && post.tag_string_copyright.toLowerCase().includes(q)) ||
+            (post.tag_string_general && post.tag_string_general.toLowerCase().includes(q))
+          );
+        });
+      }
+      renderGallery();
+    }
+
+    // Sync posts from the backend
+    async function syncPosts() {
+      document.getElementById('loading').style.display = 'block';
+      try {
+        await fetch('http://localhost:3001/sync');
+        await fetchPosts(); // Refresh gallery
+      } catch (e) {
+        alert('Sync failed.');
+      } finally {
+        document.getElementById('loading').style.display = 'none';
+      }
+    }
+
+    // Event listeners
+    document.getElementById('search').addEventListener('input', filterPosts);
+    document.getElementById('syncBtn').addEventListener('click', syncPosts);
+
+    // Initial load
+    fetchPosts();
+  </script>
+</body>
+</html>

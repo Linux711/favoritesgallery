@@ -1,4 +1,5 @@
 // Import required modules
+require('dotenv').config(); // Load environment variables from .env
 const express = require('express'); // Express web framework
 const Database = require('better-sqlite3'); // SQLite3 wrapper for Node.js
 const fs = require('fs'); // File system module
@@ -33,8 +34,23 @@ if (!dbExists) {
   `).run();
 }
 
+// Add new columns if they don't exist (for higher quality images)
+try {
+  db.prepare(`ALTER TABLE posts ADD COLUMN sample_file_url TEXT`).run();
+} catch (e) {
+  // Column might already exist, ignore
+}
+try {
+  db.prepare(`ALTER TABLE posts ADD COLUMN file_url TEXT`).run();
+} catch (e) {
+  // Column might already exist, ignore
+}
+
 // Initialize the Express application
 const app = express();
+
+// Serve static files from the current directory (for index.html)
+app.use(express.static(__dirname));
 
 // Define a GET endpoint at /posts that returns all rows from the 'posts' table as JSON
 app.get('/posts', (req, res) => {
@@ -57,21 +73,22 @@ app.listen(3001, () => {
   - Returns { synced: [number] } with the total posts saved
 */
 app.get('/sync', async (req, res) => {
+  // Accept login and api_key as query parameters, fallback to env for api_key
   const login = req.query.login;
-  const api_key = req.query.api_key;
+  const api_key = req.query.api_key || process.env.DANBOORU_API_KEY;
   if (!login || !api_key) {
-    return res.status(400).json({ error: 'Missing login or api_key query parameter' });
+    return res.status(400).json({ error: 'Missing login or api_key (query or env)' });
   }
 
   let page = 1;
   let totalSynced = 0;
   const limit = 10; // Number of posts per page
 
-  // Prepare the insert statement with 'INSERT OR IGNORE' to avoid duplicates
+  // Prepare the insert statement with 'INSERT OR REPLACE' to update existing posts with new data
   const insertStmt = db.prepare(`
-    INSERT OR IGNORE INTO posts (
-      id, preview_file_url, tag_string_general, tag_string_artist, tag_string_character, tag_string_copyright, rating, score, image_width, image_height
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT OR REPLACE INTO posts (
+      id, preview_file_url, tag_string_general, tag_string_artist, tag_string_character, tag_string_copyright, rating, score, image_width, image_height, sample_file_url, file_url
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   try {
@@ -103,7 +120,9 @@ app.get('/sync', async (req, res) => {
           post.rating || null,
           post.score || null,
           post.image_width || null,
-          post.image_height || null
+          post.image_height || null,
+          post.sample_file_url || null,
+          post.file_url || null
         );
         totalSynced++;
       }
