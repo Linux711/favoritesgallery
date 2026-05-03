@@ -22,6 +22,7 @@ if (!dbExists) {
     CREATE TABLE posts (
       id INTEGER PRIMARY KEY,
       preview_file_url TEXT,
+      large_file_url TEXT,
       tag_string_general TEXT,
       tag_string_artist TEXT,
       tag_string_character TEXT,
