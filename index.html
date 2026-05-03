@@ -189,6 +189,25 @@
     .card:hover .delete-btn {
       opacity: 1;
     }
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+  background: rgba(30, 34, 60, 0.65);
+  backdrop-filter: blur(8px) saturate(120%);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-img {
+      max-width: 90vw;
+      max-height: 90vh;
+      object-fit: contain;
+    }
   </style>
 </head>
 <body>
@@ -206,6 +225,11 @@
   </header>
   <div id="loading" class="loading" style="display:none;">Loading...</div>
   <div class="gallery" id="gallery"></div>
+
+  <!-- Modal for image lightbox -->
+  <div id="modal" class="modal" onclick="closeModal()">
+    <img id="modal-img" class="modal-img" onclick="event.stopPropagation()" />
+  </div>
 
   <script>
     // Store all posts in memory for filtering
@@ -243,7 +267,7 @@
         card.className = 'card';
         card.title = `Score: ${post.score} | Rating: ${post.rating}`;
         card.onclick = () => {
-          window.open(`https://danbooru.donmai.us/posts/${post.id}`, '_blank');
+          openModal(post.large_file_url || post.preview_file_url);
         };
 
         // Thumbnail
@@ -292,6 +316,31 @@
           }
         };
         card.appendChild(deleteBtn);
+
+        // Danbooru link (bottom right)
+        const danbooruLink = document.createElement('a');
+        danbooruLink.href = `https://danbooru.donmai.us/posts/${post.id}`;
+        danbooruLink.target = '_blank';
+        danbooruLink.rel = 'noopener noreferrer';
+        danbooruLink.textContent = 'View on Danbooru';
+        danbooruLink.style.position = 'absolute';
+  danbooruLink.style.bottom = '10px';
+  danbooruLink.style.right = '10px';
+  danbooruLink.style.background = 'rgba(30, 34, 60, 0.65)';
+  danbooruLink.style.backdropFilter = 'blur(6px) saturate(120%)';
+  danbooruLink.style.webkitBackdropFilter = 'blur(6px) saturate(120%)';
+  danbooruLink.style.color = '#b9bbbe';
+  danbooruLink.style.padding = '0.3em 1em';
+  danbooruLink.style.borderRadius = '6px';
+  danbooruLink.style.fontSize = '0.92em';
+  danbooruLink.style.textDecoration = 'none';
+  danbooruLink.style.opacity = '0';
+  danbooruLink.style.transition = 'opacity 0.2s';
+  danbooruLink.style.zIndex = '2';
+        card.appendChild(danbooruLink);
+        // Show link on hover
+        card.addEventListener('mouseenter', () => { danbooruLink.style.opacity = '1'; });
+        card.addEventListener('mouseleave', () => { danbooruLink.style.opacity = '0'; });
 
         gallery.appendChild(card);
       });
@@ -402,6 +451,23 @@
 
     // Initial load
     fetchPosts();
+
+    // Modal functions
+    function openModal(src) {
+      document.getElementById('modal-img').src = src;
+      document.getElementById('modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('modal').style.display = 'none';
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeModal();
+      }
+    });
   </script>
 </body>
 </html>
