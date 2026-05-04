@@ -43,8 +43,8 @@ app.use(express.static(__dirname));
 
 // Define a GET endpoint at /posts that returns all rows from the 'posts' table as JSON
 app.get('/posts', (req, res) => {
-  // Query all rows from the 'posts' table
-  const posts = db.prepare('SELECT * FROM posts').all();
+  // Query all rows from the 'posts' table in random order
+  const posts = db.prepare('SELECT * FROM posts ORDER BY RANDOM()').all();
   // Return the results as JSON
   res.json(posts);
 });

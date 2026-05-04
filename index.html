@@ -236,6 +236,8 @@
     let allPosts = [];
     let filteredPosts = [];
     let selectedRatings = new Set(['s']); // Default to show safe and explicit only
+    let renderedCount = 0;
+    const BATCH_SIZE = 30;
 
     // Utility: Split tag string into array, filter empty
     function parseTags(tagString) {
@@ -249,6 +251,7 @@
         const res = await fetch('http://localhost:3001/posts');
         allPosts = await res.json();
         filteredPosts = allPosts;
+        renderedCount = 0;
         filterPosts(); // Apply initial filter based on selectedRatings
       } catch (e) {
         document.getElementById('gallery').innerHTML = '<div style="color:#f55">Failed to load posts.</div>';
@@ -257,53 +260,41 @@
       }
     }
 
-    // Render the gallery with current filteredPosts
     function renderGallery() {
       const gallery = document.getElementById('gallery');
-      gallery.innerHTML = '';
-      filteredPosts.forEach(post => {
-        // Create card element
+      if (renderedCount === 0) gallery.innerHTML = '';
+      const nextBatch = filteredPosts.slice(renderedCount, renderedCount + BATCH_SIZE);
+      nextBatch.forEach(post => {
         const card = document.createElement('div');
         card.className = 'card';
         card.title = `Score: ${post.score} | Rating: ${post.rating}`;
         card.onclick = () => {
           openModal(post.large_file_url || post.preview_file_url);
         };
-
-        // Thumbnail
         const img = document.createElement('img');
         img.className = 'thumb';
-        img.src = post.large_file_url || post.preview_file_url; // Use large_file_url if available, fallback to preview
+        img.src = post.large_file_url || post.preview_file_url;
         img.alt = 'Preview';
         card.appendChild(img);
-
-        // Card content (rating)
         const content = document.createElement('div');
         content.className = 'card-content';
-        content.innerHTML = `<div class="rating">${post.rating ? 'Rating: ' + post.rating.toUpperCase() : ''}</div>`;
+        content.innerHTML = `<div class=\"rating\">${post.rating ? 'Rating: ' + post.rating.toUpperCase() : ''}</div>`;
         card.appendChild(content);
-
-        // Tags
         const tagsDiv = document.createElement('div');
         tagsDiv.className = 'tags';
-        // Artist tags
         parseTags(post.tag_string_artist).forEach(tag => {
           const pill = createTagPill(tag);
           tagsDiv.appendChild(pill);
         });
-        // Character tags
         parseTags(post.tag_string_character).forEach(tag => {
           const pill = createTagPill(tag);
           tagsDiv.appendChild(pill);
         });
-        // Copyright tags
         parseTags(post.tag_string_copyright).forEach(tag => {
           const pill = createTagPill(tag);
           tagsDiv.appendChild(pill);
         });
         card.appendChild(tagsDiv);
-
-        // Delete button
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-btn';
         deleteBtn.textContent = '×';
@@ -316,34 +307,31 @@
           }
         };
         card.appendChild(deleteBtn);
-
-        // Danbooru link (bottom right)
         const danbooruLink = document.createElement('a');
         danbooruLink.href = `https://danbooru.donmai.us/posts/${post.id}`;
         danbooruLink.target = '_blank';
         danbooruLink.rel = 'noopener noreferrer';
         danbooruLink.textContent = 'View on Danbooru';
         danbooruLink.style.position = 'absolute';
-  danbooruLink.style.bottom = '10px';
-  danbooruLink.style.right = '10px';
-  danbooruLink.style.background = 'rgba(30, 34, 60, 0.65)';
-  danbooruLink.style.backdropFilter = 'blur(6px) saturate(120%)';
-  danbooruLink.style.webkitBackdropFilter = 'blur(6px) saturate(120%)';
-  danbooruLink.style.color = '#b9bbbe';
-  danbooruLink.style.padding = '0.3em 1em';
-  danbooruLink.style.borderRadius = '6px';
-  danbooruLink.style.fontSize = '0.92em';
-  danbooruLink.style.textDecoration = 'none';
-  danbooruLink.style.opacity = '0';
-  danbooruLink.style.transition = 'opacity 0.2s';
-  danbooruLink.style.zIndex = '2';
+        danbooruLink.style.bottom = '10px';
+        danbooruLink.style.right = '10px';
+        danbooruLink.style.background = 'rgba(30, 34, 60, 0.65)';
+        danbooruLink.style.backdropFilter = 'blur(6px) saturate(120%)';
+        danbooruLink.style.webkitBackdropFilter = 'blur(6px) saturate(120%)';
+        danbooruLink.style.color = '#b9bbbe';
+        danbooruLink.style.padding = '0.3em 1em';
+        danbooruLink.style.borderRadius = '6px';
+        danbooruLink.style.fontSize = '0.92em';
+        danbooruLink.style.textDecoration = 'none';
+        danbooruLink.style.opacity = '0';
+        danbooruLink.style.transition = 'opacity 0.2s';
+        danbooruLink.style.zIndex = '2';
         card.appendChild(danbooruLink);
-        // Show link on hover
         card.addEventListener('mouseenter', () => { danbooruLink.style.opacity = '1'; });
         card.addEventListener('mouseleave', () => { danbooruLink.style.opacity = '0'; });
-
         gallery.appendChild(card);
       });
+      renderedCount += nextBatch.length;
     }
 
     // Create a tag pill element
@@ -363,8 +351,6 @@
     function filterPosts() {
       const q = document.getElementById('search').value.trim().toLowerCase();
       let filtered = allPosts;
-
-      // Apply search filter
       if (q) {
         filtered = filtered.filter(post => {
           return (
@@ -375,13 +361,11 @@
           );
         });
       }
-
-      // Apply rating filter
       if (selectedRatings.size > 0) {
         filtered = filtered.filter(post => selectedRatings.has(post.rating));
       }
-
       filteredPosts = filtered;
+      renderedCount = 0;
       renderGallery();
     }
 
@@ -451,6 +435,18 @@
 
     // Initial load
     fetchPosts();
+
+    // Lazy loading on scroll
+    window.addEventListener('scroll', () => {
+      const scrollY = window.scrollY || window.pageYOffset;
+      const viewport = window.innerHeight;
+      const fullHeight = document.body.offsetHeight;
+      if (scrollY + viewport > fullHeight - 400) {
+        if (renderedCount < filteredPosts.length) {
+          renderGallery();
+        }
+      }
+    });
 
     // Modal functions
     function openModal(src) {
